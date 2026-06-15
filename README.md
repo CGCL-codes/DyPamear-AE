@@ -44,13 +44,13 @@ To match a pattern within a graph, run:
 
 ```bash
 make clean
-GRAPH=<graph_name> UPDATES=<updated_edges> PATTERN=<pattern_name> make test
+GRAPH=<graph_name> PATTERN=<pattern_name> make test
 ```
 
 Example:
 
 ```bash
-GRAPH=WK UPDATES=<WK_updates> PATTERN=CLIQUE3 make test
+GRAPH=wiki PATTERN=CLIQUE4 make test
 ```
 
 > 💡 The available values for `GRAPH` and `PATTERN` are defined in `include/common.h`.  
@@ -66,7 +66,7 @@ All configuration entries are defined in `include/common.h`.
 
 ### ➕ Adding Custom Graphs
 
-1. Place your input graph (in CSR binary format) into the `./data/` directory.
+1. Place your input graph (in CSR binary format) and updated edges (.txt) into the `./data/` directory.
 2. Add a macro definition in `include/common.h`:
 
 ```c
@@ -83,26 +83,6 @@ All configuration entries are defined in `include/common.h`.
 GRAPH=AM0312 PATTERN=CLIQUE3 make test
 ```
 
-### ➕ Adding Custom Patterns
-
-1. Define a new macro for your pattern kernel in include/common.h
-
-```c
-#elif defined(TELE5)
-#define KERNEL_FUNC tele5
-#define PATTERN_NAME "tele5"
-#endif
-```
-
-2. Implement the kernel function in dpu/ directory (e.g., in TELE5.c or new source file).
-3. Build and run:
-
-```bash
-GRAPH=AM0312 PATTERN=TELE5 make test
-```
-
----
-
 ## 📈 Scalability Testing
 
 DyPamear is designed to scale from hundreds to tens of thousands of DPUs.
@@ -112,7 +92,7 @@ DyPamear is designed to scale from hundreds to tens of thousands of DPUs.
 To run DyPamear on a specific number of DPUs:
 
 ```bash
-GRAPH=AM0312 PATTERN=CLIQUE3 EXTRA_FLAGS="-DV_NR_DPUS=5120" make test
+GRAPH=wiki PATTERN=CLIQUE3 EXTRA_FLAGS="-DV_NR_DPUS=5120" make test
 ```
 
 ### 📊 Full Scalability Sweep
@@ -120,7 +100,7 @@ GRAPH=AM0312 PATTERN=CLIQUE3 EXTRA_FLAGS="-DV_NR_DPUS=5120" make test
 To automatically benchmark DyPamear from **640** to **20,480** DPUs:
 
 ```bash
-GRAPH=AM0312 PATTERN=CLIQUE3 make test_sc
+GRAPH=wiki PATTERN=CLIQUE4 make test_sc
 ```
 
 This script:

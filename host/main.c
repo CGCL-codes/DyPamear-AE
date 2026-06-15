@@ -173,8 +173,8 @@ static void collect_dpu_batch(struct dpu_set_t set, int base, int current_batch_
         uint64_t *dpu_ans = (uint64_t *)malloc(ALIGN8(root_cnt * sizeof(uint64_t)));
         DPU_ASSERT(dpu_copy_from(dpu, "ans", 0, dpu_ans, ALIGN8(root_cnt * sizeof(uint64_t))));
         for (node_t k = 0; k < root_cnt; k++) {
-            node_t cur_root = g->roots[idx][k];
-            result[cur_root] = dpu_ans[k];
+            // node_t cur_root = g->roots[idx][k];
+            // result[cur_root] = dpu_ans[k];
             total_ans += dpu_ans[k];
         }
         free(dpu_ans);

@@ -60,62 +60,18 @@ extern void clique4(sysname_t tasklet_id) {
     static uint64_t partial_cycle[NR_TASKLETS];
     static perfcounter_cycles cycles[NR_TASKLETS];
     
-    node_t i = 0;
-    while (i < root_num) {
-        node_t root = roots[i];  // intended DMA
-        node_t root_begin = row_ptr[root];  // intended DMA
-        node_t root_end = row_ptr[root + 1];  // intended DMA
-        if (root_end - root_begin < BRANCH_LEVEL_THRESHOLD) {
-            break;
-        }
+for (node_t i = tasklet_id; i < root_num; i += NR_TASKLETS) {
 #ifdef PERF
         timer_start(&cycles[tasklet_id]);
 #endif
-#ifdef BITMAP
-        build_bitmap(root, root_begin, root_end, tasklet_id);
-#endif
-        barrier_wait(&co_barrier);
-        partial_ans[tasklet_id] = 0;
-        for (edge_ptr j = root_begin + tasklet_id; j < root_end; j += NR_TASKLETS) {
-            node_t second_root = col_idx[j];  // intended DMA
-            if (second_root >= root) break;
-#ifdef BITMAP
-            partial_ans[tasklet_id] += __imp_clique4_bitmap(tasklet_id, j - root_begin);
-#else
-            partial_ans[tasklet_id] += __imp_clique4_2(tasklet_id, root, second_root);
-#endif
-        }
-#ifdef PERF
-        partial_cycle[tasklet_id] = timer_stop(&cycles[tasklet_id]);
-#endif
-        barrier_wait(&co_barrier);
-        if (tasklet_id == 0) {
-            ans_t total_ans = 0;
-#ifdef PERF
-            uint64_t total_cycle = 0;
-#endif
-            for (uint32_t j = 0; j < NR_TASKLETS; j++) {
-                total_ans += partial_ans[j];
-#ifdef PERF
-                total_cycle += partial_cycle[j];
-#endif
-            }
-            ans[i] = total_ans;  // intended DMA
-#ifdef PERF
-            cycle_ct[i] = total_cycle;  // intended DMA
-#endif
-        }
-        i++;
-    }
+        uint64_t edge_task = roots[i];
+        node_t u = edge_task >> 32;
+        node_t v = edge_task & 0xFFFFFFFF;
 
-    for (i += tasklet_id; i < root_num; i += NR_TASKLETS) {
-        node_t root = roots[i];  // intended DMA
+        ans[i] = __imp_clique4_2(tasklet_id, u, v);
+
 #ifdef PERF
-        timer_start(&cycles[tasklet_id]);
-#endif
-        ans[i] = __imp_clique4(tasklet_id, root);  // intended DMA
-#ifdef PERF
-        cycle_ct[i] = timer_stop(&cycles[tasklet_id]);  // intended DMA
+        cycle_ct[i] = timer_stop(&cycles[tasklet_id]);
 #endif
     }
 }

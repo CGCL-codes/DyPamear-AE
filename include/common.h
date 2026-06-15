@@ -15,7 +15,7 @@
 #define BITMAP
 #endif
 
-#define DATA_DIR "../../origin/Prism/data/"
+#define DATA_DIR "./data/"
 #if defined(SELF)
 #define DATA_NAME "self-defined"
 #define N (1<<5)
@@ -253,6 +253,10 @@
 #define DATA_NAME "V1r"
 #define N (214005760)
 #define M (465412096)
+#elif defined(wiki)
+#define DATA_NAME "wiki"
+#define N (1<<20)
+#define M (1<<21)
 #else
 #warning "No graph selected, fall back to PP."
 #define DATA_NAME "p2p-Gnutella04"
@@ -260,6 +264,7 @@
 #define M (1<<17)
 #endif
 #define DATA_PATH DATA_DIR DATA_NAME ".bin"
+#define DATA_UPDATE_PATH DATA_DIR DATA_NAME "_update.txt"
 
 #ifndef NR_DPUS
 #warning "No NR_DPUS defined, fall back to 1."
@@ -286,7 +291,7 @@
 #define KERNEL_FUNC clique2
 #define PATTERN_NAME "clique2"
 #elif defined(CLIQUE3)
-#define PRUNING_OP
+//#define PRUNING_OP
 #define KERNEL_FUNC clique3
 #define KERNEL_FUNC_BM clique3_bm
 #define PATTERN_NAME "clique3"
@@ -356,7 +361,7 @@ typedef struct Graph {
     edge_ptr row_ptr[N];
     node_t col_idx[M];
     uint64_t root_num[EF_NR_DPUS];  // number of search roots allocated to dpu
-    node_t *roots[EF_NR_DPUS];
+    uint64_t *roots[EF_NR_DPUS];
 } Graph;
 typedef uint32_t(*bitmap_t)[N >> 5];
 

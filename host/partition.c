@@ -13,6 +13,8 @@ node_t eff_num[N]={0};
 edge_ptr offset = 0;
 uint32_t no_partition_flag = 1; //true
 
+node_t original_to_new[N]; 
+
 extern uint32_t BM_DPUS;
 extern node_t BM_NUMS;
 uint64_t op_bitmap[BITMAP_ROW][BITMAP_COL]={0};  //bitmap transfer
@@ -328,6 +330,7 @@ static void data_renumber() {
 
     for (node_t i = 0; i < new_n; i++) {
         renumbered[rank[i]] = i;
+        original_to_new[rank[i]] = i;
     }
 
     edge_ptr cur = 0;
@@ -395,6 +398,48 @@ void heap_init(Heap *heap);
 void heap_free(Heap *heap);
 Heap *heap_create(uint32_t capacity);
 static void cut_edge();
+
+static void allocate_edge_tasks() {
+    FILE *fin = fopen(DATA_UPDATE_PATH, "r");
+    if (!fin) {
+        perror("Failed to open update.txt");
+        exit(EXIT_FAILURE);
+    }
+
+    for (uint32_t i = 0; i < EF_NR_DPUS; i++) {
+        global_g->root_num[i] = 0;
+        global_g->roots[i] = malloc(DPU_ROOT_NUM * sizeof(uint64_t)); 
+    }
+
+    heap = heap_create(EF_NR_DPUS);
+    heap_init(heap);
+    
+    double dpu_workload[EF_NR_DPUS] = {0};
+
+    node_t orig_u, orig_v;
+    while (fscanf(fin, "%u %u", &orig_u, &orig_v) == 2) {
+        node_t u = original_to_new[orig_u];
+        node_t v = original_to_new[orig_v];
+
+        uint64_t edge_task = ((uint64_t)u << 32) | (uint64_t)v;
+
+        double u_deg = global_g->row_ptr[u + 1] - global_g->row_ptr[u];
+        double v_deg = global_g->row_ptr[v + 1] - global_g->row_ptr[v];
+        double task_workload = u_deg + v_deg;
+
+        uint32_t cur_dpu = heap_pop(heap);
+
+        if (global_g->root_num[cur_dpu] < DPU_ROOT_NUM) {
+            global_g->roots[cur_dpu][global_g->root_num[cur_dpu]++] = edge_task;
+            dpu_workload[cur_dpu] += task_workload;
+        }
+
+        heap_push(heap, cur_dpu, dpu_workload[cur_dpu]);
+    }
+
+    fclose(fin);
+    heap_free(heap);
+}
 
 static void data_allocate(bitmap_t bitmap) {
     memset(bitmap, 0, (size_t)(N >> 3) * EF_NR_DPUS);
@@ -624,7 +669,7 @@ static void data_xfer(struct dpu_set_t set,int base) {
             if(global_g->root_num[each_dpu+base])
             DPU_ASSERT(dpu_prepare_xfer(dpu, global_g->roots[each_dpu+base]));
         }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "roots", 0, ALIGN8(max_root_num * sizeof(node_t)), DPU_XFER_DEFAULT));
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "roots", 0, ALIGN8(max_root_num * sizeof(uint64_t)), DPU_XFER_DEFAULT));
         DPU_FOREACH(set, dpu, each_dpu) {
             if(global_g->root_num[each_dpu+base])
             DPU_ASSERT(dpu_prepare_xfer(dpu, global_g->row_ptr));
@@ -634,7 +679,7 @@ static void data_xfer(struct dpu_set_t set,int base) {
             if(global_g->root_num[each_dpu+base])
             DPU_ASSERT(dpu_prepare_xfer(dpu, global_g->col_idx));
         }
-        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "col_idx", 0, ALIGN8(global_g->m * sizeof(node_t) * 3), DPU_XFER_DEFAULT));
+        DPU_ASSERT(dpu_push_xfer(set, DPU_XFER_TO_DPU, "col_idx", 0, ALIGN8(global_g->m * sizeof(node_t)), DPU_XFER_DEFAULT));
 
         //re_col
         DPU_ASSERT(dpu_broadcast_to(set, "edge_offset", 0, &offset, sizeof(edge_ptr), DPU_XFER_DEFAULT));
@@ -716,8 +761,8 @@ void prepare_graph() {
     read_input();  
     data_renumber();    
     bitmap = alloc_bitmap(N, EF_NR_DPUS);
-    data_allocate(bitmap); 
-
+    //data_allocate(bitmap); 
+    allocate_edge_tasks();
     
 #ifdef NO_PARTITION_AS_POSSIBLE
     if (global_g->n > DPU_N - 1 || global_g->m * 3 > DPU_M)no_partition_flag=0; //data_compact
